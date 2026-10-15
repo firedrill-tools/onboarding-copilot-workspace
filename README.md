@@ -31,3 +31,5 @@ The seed starts with a missing workspace name. The owner first saves a name, the
 The UI polls the same state the API writes, so visible members and review decisions reflect committed data. Offline tests cover incomplete setup, malformed addresses, duplicate proposals, unauthorized decision, changed setup, rejection, and approval. Frontend typecheck/build and a local browser flow cover UI rendering and approval. These checks do not prove live Gemini behavior. A live model proof and the new Firedrill integration remain pending.
 
 This private example intentionally has no license pending publication decisions. Versions are pinned in `backend/uv.lock` and `frontend/package-lock.json`.
+
+Explore related applications in the [Firedrill example catalog](https://github.com/firedrill-tools/firedrill-example-catalog). Product and setup references: [Firedrill](https://firedrill.run/) and the [official developer documentation](https://docs.firedrill.run/). Use documentation matching the qualified release; this repository records its current integration limits above.
