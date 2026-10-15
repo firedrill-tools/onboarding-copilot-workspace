@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "onboarding-copilot-backend"
+version = "0.1.0"
+description = "Google ADK invitation proposal agent with approval-backed onboarding workspace"
+requires-python = ">=3.12"
+dependencies = ["google-adk==2.12.0", "ag-ui-adk==0.4.2", "ag-ui-protocol==0.1.22", "fastapi==0.141.1", "uvicorn==0.54.0"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.28,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/onboarding_workspace"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

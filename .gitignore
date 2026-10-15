@@ -1,0 +1,10 @@
+backend/.venv/
+backend/.pytest_cache/
+backend/src/**/__pycache__/
+backend/tests/__pycache__/
+frontend/node_modules/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+workspace.json
+.env
+.DS_Store
