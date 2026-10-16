@@ -9,8 +9,8 @@ from google.genai import types
 from .store import Conflict, Workspace
 
 
-def context(workspace):
-    state = workspace.detail()
+def context(workspace, state=None):
+    state = workspace.detail() if state is None else state
     return {
         "setup": state["setup"],
         "invite_proposals": [

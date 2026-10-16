@@ -16,6 +16,7 @@ from starlette.background import BackgroundTask
 from google.adk.models.base_llm import BaseLlm
 
 from .runtime import Runtime
+from .http_boundary import StrictJSONMiddleware
 from .store import Conflict, Workspace
 from .schema import Strict, Revision, Email
 
@@ -68,9 +69,10 @@ def create_app(
 
     app = FastAPI(title="Onboarding copilot workspace", lifespan=lifespan)
     app.state.runtime = runtime
+    app.add_middleware(StrictJSONMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=[os.getenv("ONBOARDING_WEB_ORIGIN", "http://localhost:3000")],
         allow_methods=["GET", "POST", "PATCH"],
         allow_headers=["*"],
     )
@@ -129,20 +131,72 @@ def create_app(
     return app
 
 
-def main():
+def cli():
+    import argparse
+    import json
     import uvicorn
+    from .datasets import initialize, inspect_workspace, reset, list_cases
 
-    path = Path(
-        os.getenv(
-            "ONBOARDING_WORKSPACE_FILE",
-            str(Path(__file__).parents[3] / "workspace.json"),
+    parser = argparse.ArgumentParser(
+        description="Synthetic onboarding workspace and owned ADK/Gemini server"
+    )
+    parser.add_argument(
+        "command",
+        nargs="?",
+        default="serve",
+        choices=["datasets", "init", "workspace", "reset", "serve"],
+    )
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        default=Path(
+            os.getenv("ONBOARDING_WORKSPACE_FILE", "run-output/workspace.json")
+        ),
+    )
+    parser.add_argument("--case", default="incomplete-setup")
+    parser.add_argument("--destination", type=Path)
+    parser.add_argument("--port", type=int, default=8125)
+    parser.add_argument("--offline", action="store_true")
+    args = parser.parse_args()
+    if args.command == "datasets":
+        result = list_cases()
+    elif args.command == "init":
+        result = initialize(args.workspace, args.case)
+    elif args.command == "workspace":
+        result = inspect_workspace(args.workspace, Workspace(args.workspace).read())
+    elif args.command == "reset":
+        if args.destination is None:
+            parser.error("reset needs --destination")
+        result = reset(
+            args.workspace, args.destination, Workspace(args.workspace).read()
         )
-    )
-    uvicorn.run(
-        create_app(path, include_agent=os.getenv("ONBOARDING_OFFLINE") != "1"),
-        host="127.0.0.1",
-        port=8125,
-    )
+    else:
+        uvicorn.run(
+            create_app(
+                args.workspace,
+                include_agent=not args.offline
+                and os.getenv("ONBOARDING_OFFLINE") != "1",
+            ),
+            host="127.0.0.1",
+            port=args.port,
+            timeout_graceful_shutdown=1,
+        )
+        return
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+
+
+def main():
+    import json
+
+    try:
+        cli()
+    except (ValueError, OSError) as error:
+        print(
+            json.dumps(
+                {"ok": False, "error": type(error).__name__, "message": str(error)}
+            )
+        )
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

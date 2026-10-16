@@ -55,6 +55,10 @@ def _source(path):
         ):
             raise ValueError("state changed during read")
         state = validate_state(strict_json(raw.decode("utf-8")))
+        if state.get("dataset"):
+            from .datasets import authority
+
+            authority(path, state)
         return state, raw, (before.st_dev, before.st_ino)
     finally:
         os.close(fd)
@@ -145,7 +149,7 @@ class Workspace:
             raise ValueError("name must be text")
         name = name.strip()
         if not 3 <= len(name) <= 60:
-            raise ValueError("workspace name must be3 to60 characters")
+            raise ValueError("workspace name must be 3 to 60 characters")
         with self.transaction() as state:
             setup = state["setup"]
             if actor != setup["owner_email"]:

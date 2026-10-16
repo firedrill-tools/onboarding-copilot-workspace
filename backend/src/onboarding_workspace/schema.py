@@ -92,12 +92,26 @@ class Audit(Strict):
     outcome: Literal["saved", "pending", "approved", "rejected"]
 
 
+class Dataset(Strict):
+    id: Literal["onboarding-populations"]
+    version: Literal["1.0.0"]
+    case_id: Id
+    source_sha256: Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
+
+
 class State(Strict):
     synthetic: Literal[True]
     version: Literal[1]
     instance_id: (
-        Annotated[str, StringConstraints(pattern=r"^[0-9a-f-]{36}$")] | None
+        Annotated[
+            str,
+            StringConstraints(
+                pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            ),
+        ]
+        | None
     ) = None
+    dataset: Dataset | None = None
     setup: Setup
     invite_proposals: Annotated[list[Proposal], Field(max_length=1000)]
     invitations: Annotated[list[Invitation], Field(max_length=256)]
@@ -147,6 +161,7 @@ def validate_state(value):
         source = p["source_setup"]
         if (
             not source["name"]
+            or source["id"] != setup["id"]
             or source["revision"] != p["setup_revision"]
             or p["email"].split("@")[1] != source["allowed_domain"]
             or p["email"] == source["owner_email"]

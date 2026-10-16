@@ -7,7 +7,14 @@ from fastapi.testclient import TestClient
 from onboarding_workspace.api import create_app
 from onboarding_workspace.store import Workspace, Conflict
 
-FIXTURE = Path(__file__).parents[2] / "fixtures/starter.json"
+FIXTURE = next(
+    path
+    for path in (
+        Path(__file__).parents[2] / "fixtures/starter.json",
+        Path(__file__).parents[1] / "fixtures/starter.json",
+    )
+    if path.exists()
+)
 
 
 def setup(tmp_path):
@@ -141,3 +148,25 @@ def test_independent_processes_approve_only_one_exact_invitation(tmp_path):
         sum("proposal" in r for r in results) == 1 and len(w.read()["invitations"]) == 1
     )
     assert w.read()["invitations"][0]["role"] == "member"
+
+
+def test_original_http_json_duplicate_keys_cannot_choose_another_revision(tmp_path):
+    w, file = setup(tmp_path)
+    before = file.read_bytes()
+    with TestClient(create_app(file, include_agent=False)) as client:
+        result = client.patch(
+            "/workspace/name",
+            headers={"content-type": "application/json"},
+            content='{"name":"Changed","revision":1,"revision":2,"actor":"owner@acme.example"}',
+        )
+    assert result.status_code == 400 and file.read_bytes() == before
+
+
+def test_reviewed_proposals_cannot_borrow_a_foreign_workspace_identity(tmp_path):
+    w, file = setup(tmp_path)
+    w.propose_invite("mira@acme.example", "member")
+    state = w.read()
+    state["setup"]["id"] = "WS-FOREIGN"
+    file.write_text(json.dumps(state))
+    with pytest.raises(ValueError, match="reviewed source"):
+        w.read()

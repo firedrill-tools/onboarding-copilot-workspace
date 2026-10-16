@@ -3,31 +3,36 @@ on:
   push:
   pull_request:
 jobs:
-  backend:
+  qualification:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      COPILOTKIT_TELEMETRY_DISABLED: 'true'
+      OTEL_SDK_DISABLED: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - run: uv sync --extra test --frozen
-      - run: uv run pytest
-  frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+      - run: uv sync --project backend --extra test --locked
+      - run: uv run --project backend python scripts/build_datasets.py --check
+      - run: uv build --project backend
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: uv run --project backend python scripts/check_distribution.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-source
+          path: |
+            dist/
+            backend/dist/
+          if-no-files-found: error

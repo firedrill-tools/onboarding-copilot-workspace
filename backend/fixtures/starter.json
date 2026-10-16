@@ -1,0 +1,8 @@
+{
+  "synthetic": true,
+  "version": 1,
+  "setup": { "id": "WS-101", "name": "", "region": "Canada", "plan": "Team", "owner_email": "owner@acme.example", "allowed_domain": "acme.example", "revision": 1 },
+  "invite_proposals": [],
+  "invitations": [],
+  "audit": []
+}

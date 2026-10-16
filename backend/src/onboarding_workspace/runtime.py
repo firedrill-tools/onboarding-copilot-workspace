@@ -361,6 +361,11 @@ class Runtime:
                     try:
                         if failure is None:
                             receipt.guard()
+                            current_state, current_bytes, _ = self.workspace.snapshot()
+                            result["state"] = context(self.workspace, current_state)
+                            receipt.data["terminal_state_source_sha256"] = sha(
+                                current_bytes
+                            )
                         receipt.finish(result, failure)
                     except BaseException as error:
                         failure = failure or error

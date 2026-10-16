@@ -10,7 +10,14 @@ from onboarding_workspace.store import Workspace
 from onboarding_workspace.native import Config
 from onboarding_workspace.runtime import Runtime
 
-FIXTURE = Path(__file__).parents[2] / "fixtures/starter.json"
+FIXTURE = next(
+    path
+    for path in (
+        Path(__file__).parents[2] / "fixtures/starter.json",
+        Path(__file__).parents[1] / "fixtures/starter.json",
+    )
+    if path.exists()
+)
 
 
 def setup(tmp_path):
@@ -558,5 +565,125 @@ def test_request_budget_and_original_missing_function_ids_are_distinct(tmp_path)
             a["original_function_id"] is None for a in data["actions"]
         )
         assert p.closed and not w.read()["invite_proposals"]
+
+    asyncio.run(check())
+
+
+def test_missing_key_keeps_private_zero_request_failure_and_unknown_cost(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_MODEL", "controlled-gemini")
+
+    async def check():
+        w, _ = setup(tmp_path)
+        runtime = Runtime(w)
+        events = await collect(runtime)
+        data = trace(tmp_path)
+        assert events[-1].type == "RUN_ERROR" and data["native"] == []
+        assert data["status"] == "failed" and data["cost_usd"] is None
+        assert all(data["lifecycle"].values())
+
+    asyncio.run(check())
+
+
+def test_corrupt_source_during_native_response_is_not_repaired_or_dispatched(tmp_path):
+    async def check():
+        w, file = setup(tmp_path)
+
+        def corrupt(n):
+            file.write_text('{"synthetic":false}')
+
+        p = Provider(hook=corrupt)
+        runtime = Runtime(w, config=config(), transport_factory=lambda: p)
+        events = await collect(runtime)
+        data = trace(tmp_path)
+        assert events[-1].type == "RUN_ERROR" and data["actions"] == []
+        assert file.read_text() == '{"synthetic":false}' and data["status"] == "failed"
+        assert all(data["lifecycle"].values())
+
+    asyncio.run(check())
+
+
+def test_failed_terminal_translation_cannot_leave_completed_private_evidence(
+    tmp_path, monkeypatch
+):
+    from onboarding_workspace.runtime import EventTranslator
+
+    original = EventTranslator.translate
+
+    async def missing_final(self, event, thread, run):
+        if event.is_final_response():
+            return
+        async for value in original(self, event, thread, run):
+            yield value
+
+    monkeypatch.setattr(EventTranslator, "translate", missing_final)
+
+    async def check():
+        w, _ = setup(tmp_path)
+        p = Provider()
+        runtime = Runtime(w, config=config(), transport_factory=lambda: p)
+        events = await collect(runtime)
+        data = trace(tmp_path)
+        assert events[-1].type == "RUN_ERROR" and data["status"] == "failed"
+        assert data["result"] is None and all(data["lifecycle"].values())
+        assert len(w.read()["invite_proposals"]) == 1
+
+    asyncio.run(check())
+
+
+def test_runtime_shutdown_cancels_and_awaits_its_active_http_without_touching_another(
+    tmp_path,
+):
+    async def check():
+        a = tmp_path / "a"
+        a.mkdir()
+        b = tmp_path / "b"
+        b.mkdir()
+        wa, _ = setup(a)
+        wb, _ = setup(b)
+        pa = Provider(wait=asyncio.Event())
+        pb = Provider()
+        ra = Runtime(wa, config=config(), transport_factory=lambda: pa)
+        rb = Runtime(wb, config=config(), transport_factory=lambda: pb)
+        task = asyncio.create_task(collect(ra))
+        entered = asyncio.create_task(pa.started.wait())
+        await asyncio.wait(
+            {task, entered}, timeout=5, return_when=asyncio.FIRST_COMPLETED
+        )
+        assert pa.started.is_set()
+        await ra.close()
+        assert task.done() and pa.closed and all(trace(a)["lifecycle"].values())
+        assert (await collect(rb))[-1].type == "RUN_FINISHED"
+        assert not rb.closed and not wa.read()["invite_proposals"]
+        await rb.close()
+
+    asyncio.run(check())
+
+
+def test_terminal_snapshot_rereads_actual_source_after_native_cleanup(tmp_path):
+    async def check():
+        workspace, file = setup(tmp_path)
+
+        class ChangingClose(Provider):
+            async def aclose(self):
+                workspace.set_name("Reviewed during cleanup", 2, "owner@acme.example")
+                await super().aclose()
+
+        provider = ChangingClose()
+        runtime = Runtime(
+            workspace, config=config(), transport_factory=lambda: provider
+        )
+        events = await collect(runtime)
+        assert events[-1].type == "RUN_FINISHED"
+        snapshot = next(e for e in events if e.type == "STATE_SNAPSHOT")
+        assert snapshot.snapshot["setup"]["name"] == "Reviewed during cleanup"
+        evidence = trace(tmp_path)
+        assert (
+            evidence["terminal_state_source_sha256"] == evidence["final_source_sha256"]
+        )
+        assert evidence["result"]["state"] == snapshot.snapshot
+        await runtime.close()
 
     asyncio.run(check())

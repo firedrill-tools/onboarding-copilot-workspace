@@ -8,3 +8,14 @@ frontend/tsconfig.tsbuildinfo
 workspace.json
 .env
 .DS_Store
+
+frontend/test-results/
+frontend/playwright-report/
+frontend/.e2e/
+
+dist/
+backend/dist/
+backend/.ruff_cache/
+runs/
+
+run-output/
