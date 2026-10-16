@@ -19,3 +19,6 @@ backend/.ruff_cache/
 runs/
 
 run-output/
+
+__pycache__/
+*.pyc
