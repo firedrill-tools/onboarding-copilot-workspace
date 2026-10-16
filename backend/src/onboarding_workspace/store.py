@@ -167,7 +167,7 @@ class Workspace:
             self._write(state)
             return setup
 
-    def propose_invite(self, email, role):
+    def propose_invite(self, email, role, *, expected_setup=None):
         if not isinstance(email, str):
             raise ValueError("email must be text")
         email = email.strip().lower()
@@ -179,6 +179,10 @@ class Workspace:
             raise ValueError("role must be member or admin")
         with self.transaction() as state:
             setup = state["setup"]
+            if expected_setup is not None and canonical(setup) != canonical(
+                expected_setup
+            ):
+                raise Conflict("setup_changed_since_read")
             if not setup["name"]:
                 raise Conflict("setup_incomplete")
             if email.split("@")[1] != setup["allowed_domain"]:

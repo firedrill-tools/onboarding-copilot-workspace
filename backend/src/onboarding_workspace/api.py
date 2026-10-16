@@ -7,10 +7,15 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from contextlib import asynccontextmanager
+from ag_ui.core import RunAgentInput
+from ag_ui.encoder import EventEncoder
+from fastapi import Request
+from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 from google.adk.models.base_llm import BaseLlm
 
-from .agent import build_agent
+from .runtime import Runtime
 from .store import Conflict, Workspace
 from .schema import Strict, Revision, Email
 
@@ -28,10 +33,41 @@ class Decision(Strict):
 
 
 def create_app(
-    workspace_path: Path, include_agent: bool = True, agent_model: BaseLlm | None = None
+    workspace_path: Path,
+    include_agent: bool = True,
+    agent_model: BaseLlm | None = None,
+    *,
+    native_config=None,
+    transport_factory=None,
+    output_root=None,
+    timeout_seconds=120,
+    writer=None,
 ) -> FastAPI:
     workspace = Workspace(workspace_path)
-    app = FastAPI(title="Onboarding copilot workspace")
+    runtime = (
+        Runtime(
+            workspace,
+            config=native_config,
+            agent_model=agent_model,
+            transport_factory=transport_factory,
+            output_root=output_root,
+            timeout_seconds=timeout_seconds,
+            writer=writer,
+        )
+        if include_agent
+        else None
+    )
+
+    @asynccontextmanager
+    async def lifespan(app):
+        try:
+            yield
+        finally:
+            if runtime is not None:
+                await runtime.close()
+
+    app = FastAPI(title="Onboarding copilot workspace", lifespan=lifespan)
+    app.state.runtime = runtime
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:3000"],
@@ -66,15 +102,30 @@ def create_app(
             raise HTTPException(422, str(exc)) from exc
 
     if include_agent:
-        from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
 
-        adk_agent = build_agent(workspace, agent_model)
-        bridge = ADKAgent(
-            adk_agent=adk_agent,
-            app_name="onboarding_workspace",
-            user_id="local_operator",
-        )
-        add_adk_fastapi_endpoint(app, bridge, path="/agent")
+        @app.post("/agent")
+        async def agent_endpoint(input_data: RunAgentInput, request: Request):
+            try:
+                message = runtime.reserve(input_data)
+            except ValueError as error:
+                raise HTTPException(409, str(error)) from error
+            encoder = EventEncoder(accept=request.headers.get("accept"))
+
+            async def stream():
+                from contextlib import aclosing
+
+                async with aclosing(runtime.events(input_data, message)) as events:
+                    async for event in events:
+                        yield encoder.encode(event)
+
+            return StreamingResponse(
+                stream(),
+                media_type=encoder.get_content_type(),
+                background=BackgroundTask(
+                    runtime.release_reservation, input_data.thread_id
+                ),
+            )
+
     return app
 
 
