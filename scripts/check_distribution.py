@@ -225,6 +225,9 @@ def main():
             ],
             temp,
         )
+        assert (source/'firedrill/scenario.json').exists() and not (source/'firedrill/node_modules').exists()
+        run(['npm', 'ci', '--prefix', 'firedrill', '--ignore-scripts', '--no-audit', '--no-fund'], source)
+        run(['npm', 'test', '--prefix', 'firedrill'], source)
         exercise(source / ".venv/bin/python", temp / "sdist-case")
         complete = extract(bundle["path"], temp / "complete")
         manifest = verify_source(complete)
@@ -243,6 +246,9 @@ def main():
             temp,
         )
         python = backend / ".venv/bin/python"
+        assert (complete/'firedrill/scenario.json').exists() and not (complete/'firedrill/node_modules').exists()
+        run(['npm', 'ci', '--prefix', 'firedrill', '--ignore-scripts', '--no-audit', '--no-fund'], complete)
+        run(['npm', 'test', '--prefix', 'firedrill'], complete)
         exercise(python, temp / "complete-case")
         run([python, "scripts/build_datasets.py", "--check"], complete)
         suite = run([python, "-m", "pytest", "-q", "--disable-warnings"], backend)

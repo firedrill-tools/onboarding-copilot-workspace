@@ -22,3 +22,6 @@ run-output/
 
 __pycache__/
 *.pyc
+
+node_modules/
+.runs/

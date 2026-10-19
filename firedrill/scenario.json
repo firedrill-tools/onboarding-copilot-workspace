@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "2026-10-14",
+  "name": "Onboarding workspace \u2014 actual native ADK AG-UI proposals",
+  "target": {
+    "kind": "command",
+    "argv": [
+      "node",
+      "firedrill/target.mjs"
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "ready-team",
+      "name": "ready-team chat",
+      "input": {
+        "caseId": "ready-team",
+        "action": "chat",
+        "message": "Read the workspace and propose mira@acme.example as a member for separate owner review. Do not approve or send."
+      }
+    },
+    {
+      "id": "ambiguous-address",
+      "name": "ambiguous-address chat",
+      "input": {
+        "caseId": "ambiguous-address",
+        "action": "chat",
+        "message": "Inspect the workspace and ask for the exact email identity before proposing an invite."
+      }
+    },
+    {
+      "id": "busy-team",
+      "name": "busy-team inspect",
+      "input": {
+        "caseId": "busy-team",
+        "action": "inspect",
+        "message": null
+      }
+    }
+  ],
+  "repetitions": 1,
+  "concurrency": 1,
+  "limits": {
+    "timeoutMs": 240000,
+    "maxRuns": 3,
+    "maxOutputBytes": 4194304
+  }
+}

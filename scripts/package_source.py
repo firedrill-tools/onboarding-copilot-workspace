@@ -15,6 +15,8 @@ VERSION = tomllib.loads((ROOT / "backend/pyproject.toml").read_text())["project"
 ]
 PREFIX = f"onboarding-copilot-workspace-{VERSION}"
 ROOTS = (
+    "firedrill",
+    "backend/hatch_build.py",
     "backend/src",
     "backend/data",
     "backend/fixtures",
@@ -54,7 +56,7 @@ def source_files():
         if path.is_symlink():
             raise ValueError("source inputs must not be aliases")
         for candidate in sorted(path.rglob("*")) if path.is_dir() else [path]:
-            if "__pycache__" in candidate.parts or candidate.suffix == ".pyc":
+            if any(part in {"__pycache__", "node_modules", ".runs"} for part in candidate.parts) or candidate.suffix == ".pyc":
                 continue
             if candidate.is_symlink():
                 raise ValueError("source inputs must not be aliases")
