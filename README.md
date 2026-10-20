@@ -2,6 +2,8 @@
 
 A Next.js/CopilotKit workspace and Google ADK agent share the same committed synthetic setup, review queue and invitation records. Chat can read requirements and propose an exact recipient/role. A separate owner action approves or rejects a proposal. No email or invitation service is connected; an actor email is a fixture identity without production authentication.
 
+This example repository is publicly viewable. A project license has not been selected.
+
 ## Simulate with Firedrill
 
 [Firedrill](https://firedrill.run/) is a simulation platform for AI agents.
@@ -77,7 +79,7 @@ backend/.venv/bin/python scripts/check_distribution.py
 
 82 backend checks and12 production Chromium flows cover actual pinned Gemini SDK over owned loopback HTTP, AG-UI, CopilotKit chat, separate approval/rejection, busy/alternate populations, stale UI/API state, errors, stop/recovery, malformed math and unsafe markup. Test provider responses are controlled, not semantic model evidence. `check_distribution.py` installs locked wheel/sdist and the complete source outside checkout, exercises installed native/API/CLI paths and every case, then repeats the full backend/browser suite and verifies unchanged delivered files and byte-identical archives. CI retains backend distributions, deterministic source/manifest, qualification and browser screenshots. Backend sdist alone does not include the frontend; the complete source archive does.
 
-See [PLAN.md](PLAN.md), [COMPATIBILITY.md](COMPATIBILITY.md) and [scenarios](scenarios/README.md). Actual enabled Gemini/model semantics/billing, authenticated persisted Firedrill scenarios and publication/license remain external gates. No license is granted pending publication decisions. [Example catalog](https://github.com/firedrill-tools/firedrill-example-catalog), [Firedrill](https://firedrill.run/) and [official documentation](https://docs.firedrill.run/) provide portfolio context; matching release qualification is required.
+See [PLAN.md](PLAN.md), [COMPATIBILITY.md](COMPATIBILITY.md) and [scenarios](scenarios/README.md). Actual enabled Gemini/model semantics/billing, authenticated persisted Firedrill scenarios and license remain external gates. A project license has not been selected. [Example catalog](https://github.com/firedrill-tools/firedrill-example-catalog), [Firedrill](https://firedrill.run/) and [official documentation](https://docs.firedrill.run/) provide portfolio context; matching release qualification is required.
 
 ## Current Firedrill integration
 
